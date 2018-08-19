@@ -8,18 +8,104 @@ output:
 
 ## Loading and preprocessing the data
 
+```{r LoadData}
+activitydata<-read.csv("activity.csv")
+```
 
+Load the data by reading in the .csv file.
+
+```{r StrData}
+str(activitydata)
+```
+
+If we look at the structure of the data, we see that the Steps Variable is Integer, the Date Variable is a Factor, and the Interval Variable is also Integer. For now, we will keep things formatted as they are.
 
 ## What is mean total number of steps taken per day?
 
+```{r SumStepsByDay}
+TotalStepsDaily<-tapply(activitydata$steps,activitydata$date,sum,na.rm=TRUE)
+hist(TotalStepsDaily,main="Histogram of Total Daily Steps", xlab="Total Steps Daily")
+```
 
+If we take the sum of Steps by Date (ignoring the NA values), and plot the Histogram of those Totals, we can see the frequency distribution of Total Steps Daily.
+
+```{r MeanTotalStepsDaily}
+mean(TotalStepsDaily)
+```
+```{r MedianTotalStepsDaily}
+median(TotalStepsDaily)
+```
+
+Taking the Mean of the Total Steps Daily, we get `MeanTotalStepsDaily`, and taking the Median we get `MedianTotalStepsDaily`.
 
 ## What is the average daily activity pattern?
 
+```{r AverageStepsInterval}
+AverageStepsInterval<-tapply(activitydata$steps,activitydata$interval,mean,na.rm=TRUE)
+plot(x=names(AverageStepsInterval),y=AverageStepsInterval,type="l",main="Average Steps taken by Interval",xlab="Interval",ylab="Average Steps Taken")
+```
 
+Next, we take the Mean of steps by Interval (again ignoring the NA values), and plot the Average Steps taken by Interval as a time series plot.
+
+But which Interval has the highest Average Number of Steps taken?
+
+```{r WhichIntervalMax}
+names(which.max(AverageStepsInterval))
+```
+
+We can see that the Interval with the highest Average Number of Steps is Interval `WhichIntervalMax`.
 
 ## Imputing missing values
 
+Now we want to see if imputing values into the NA observations will give us the same results.
 
+First -- how many NAs are present in our Steps Variable?
+
+```{r HowManyNAs}
+sum(is.na(activitydata$steps))
+```
+
+There are `HowManyNAs` NA entries in the Steps Variable.
+
+Let's fill in those NA entries with the average Steps for the Interval of each of those observations. We'll do this with a duplicate of our ActivityData data frame and then plot a histogram of the results.
+
+```{r ImputeData}
+activitydataImputed<-activitydata
+activitydataImputed$steps<-with(activitydata,ave(steps,interval,FUN=function(x) replace(x,is.na(x),mean(x,na.rm=TRUE))))
+TotalStepsDailyImputed<-tapply(activitydataImputed$steps,activitydataImputed$date,sum,na.rm=TRUE)
+hist(TotalStepsDailyImputed,main="Histogram of Total Daily Steps with Imputed Values", xlab="Total Steps Daily")
+```
+
+Looking at the Frequency Distribution of our Imputed data, we can see that it looks a little different from our first Histogram of the Total Daily Steps where we ignored the NAs.
+
+So how do our new Mean and Median compare to our first values?
+
+```{r MeanImputed}
+mean(TotalStepsDailyImputed)
+```
+```{r MedianImputed}
+median(TotalStepsDailyImputed)
+```
+
+Taking the Mean of our Total Steps Daily including the Imputed values, we get `MeanImputed`, and taking the Median we get `MedianImputed`.
+
+Compare those to our original results -- ignoring the NAs instead of imputing them, we had a Mean of `MeanTotalStepsDaily`, and a Median of `MedianTotalStepsDaily`.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+To see if there are differences between Weekdays and Weekends, first we need to create a Factor Variable that labels each observation as "Weekday" or "Weekend", based on the date. Since we did not pre-proces our Date Variable, we will need to make sure we convert that Variable to a Date when we do this.
+
+```{r CreateFactor}
+Weekdays<-weekdays(as.Date(as.character(activitydataImputed$date)))
+WeekdaysFactor<-factor(Weekdays,levels=c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"))
+activitydataImputed$DayOfWeek<-factor(unclass(WeekdaysFactor)<=5,levels=c(FALSE,TRUE),labels=c("Weekend","Weekday"))
+```
+
+Now that we've labeled each observation according to whether they occurred on a weekday or a weekend, we can take a look at our Average Steps by Interval between the two.
+
+```{r PlotByDayOfWeek}
+AverageStepsIntervalDayOfWeek<-aggregate(steps~interval+DayOfWeek,data=activitydataImputed,mean)
+xyplot(steps~interval|DayOfWeek,data=AverageStepsIntervalDayOfWeek,layout=c(1,2),main="Average Steps Taken by Interval",xlab="Interval",ylab="Average Steps Taken",type="l")
+```
+
+It looks like there is a difference between the two after all - especially around the peak Interval we saw before, Interval `WhichIntervalMax`.
